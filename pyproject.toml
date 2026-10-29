@@ -9,12 +9,15 @@ packages = [{ include = "decodeck", from = "src" }]
 [tool.poetry.dependencies]
 python = "^3.12"
 pyyaml = "^6.0"
+openai = "^3.41.0"
+fsrs = "^6.3.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3"
 
 [tool.poetry.scripts]
 deck-lint = "decodeck.deck_lint:main"
+deck-benchmark = "decodeck.benchmark:main"
 
 [build-system]
 requires = ["poetry-core"]

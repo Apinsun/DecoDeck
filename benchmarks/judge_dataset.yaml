@@ -1,0 +1,309 @@
+# Juge de calibration — dataset d'évaluation
+#
+# 5 cartes de fondamentaux Python × 8 types de réponse = 40 échantillons.
+# Chaque échantillon est une réponse d'utilisateur avec le verdict attendu
+# (`expected_met`, un booléen par critère). La note FSRS attendue se dérive
+# de `expected_met` via grade_from_criteria.
+#
+# `kind` sert au reporting par catégorie :
+#   perfect | paraphrase | partial | negation | dont_know | vague | overcomplete
+
+version: 1
+
+cards:
+  - id: gil
+    question: |
+      Qu'est-ce que le GIL, et quelle est sa conséquence pour le
+      multithreading CPU-bound en CPython ?
+    reference_answer: |
+      Le GIL est un verrou qui n'autorise qu'un seul thread à exécuter du
+      bytecode Python à la fois. Conséquence : les threads ne parallélisent
+      pas le code CPU-bound ; ils restent utiles pour l'I/O-bound.
+    grading_rubric:
+      - "Un seul thread exécute du bytecode à la fois"
+      - "Pas de parallélisme CPU-bound, utile pour l'I/O-bound"
+
+  - id: new-init
+    question: "Quelle est la différence entre `__new__` et `__init__` ?"
+    reference_answer: |
+      `__new__` crée et retourne la nouvelle instance (le vrai constructeur).
+      `__init__` initialise l'instance déjà créée et ne retourne rien (None).
+    grading_rubric:
+      - "`__new__` crée et retourne l'instance"
+      - "`__init__` initialise et retourne None"
+
+  - id: hashable
+    question: |
+      Pourquoi une liste ne peut-elle pas servir de clé de dictionnaire,
+      alors qu'un tuple le peut ?
+    reference_answer: |
+      Une clé doit être hashable : son hash ne doit jamais changer. Les listes
+      sont mutables, donc non hashables. Un tuple est hashable à condition de
+      ne contenir que des éléments eux-mêmes hashables.
+    grading_rubric:
+      - "Une clé doit être hashable (hash stable)"
+      - "Mutable = non hashable (liste), immuable = hashable (tuple)"
+      - "Nuance : tuple non hashable s'il contient un élément mutable"
+
+  - id: is-eq
+    question: "Quelle est la différence entre `is` et `==` ?"
+    reference_answer: |
+      `==` compare les valeurs (égalité), `is` compare l'identité des objets
+      (même objet en mémoire).
+    grading_rubric:
+      - "`==` compare les valeurs"
+      - "`is` compare l'identité (même objet)"
+
+  - id: mutable-default
+    question: "Pourquoi `def f(x=[])` est-il un piège ?"
+    reference_answer: |
+      La valeur par défaut est évaluée une seule fois, à la définition de la
+      fonction. La même liste est donc partagée entre tous les appels et les
+      mutations persistent.
+    grading_rubric:
+      - "Évaluée une seule fois, à la définition"
+      - "Objet partagé entre appels → mutations persistantes"
+
+samples:
+  # --- gil ---
+  - card_id: gil
+    kind: perfect
+    answer: |
+      Le GIL est un verrou qui n'autorise qu'un seul thread à exécuter du
+      bytecode à la fois. Les threads ne parallélisent donc pas le code
+      CPU-bound, mais restent utiles pour l'I/O-bound.
+    expected_met: [true, true]
+
+  - card_id: gil
+    kind: paraphrase
+    answer: |
+      C'est un mécanisme de verrouillage : un seul thread tourne à la fois en
+      Python, donc pas de vrai parallélisme pour le calcul intensif, par contre
+      ça va pour les entrées/sorties.
+    expected_met: [true, true]
+
+  - card_id: gil
+    kind: partial
+    answer: "Le GIL empêche plusieurs threads d'exécuter du Python en même temps."
+    expected_met: [true, false]
+
+  - card_id: gil
+    kind: partial
+    answer: |
+      À cause du GIL, le multithreading n'accélère pas le CPU-bound ; il ne
+      sert que pour l'I/O.
+    expected_met: [false, true]
+
+  - card_id: gil
+    kind: negation
+    answer: "Le GIL permet d'exécuter du bytecode en parallèle sur tous les cœurs."
+    expected_met: [false, false]
+
+  - card_id: gil
+    kind: dont_know
+    answer: "Je ne sais pas."
+    expected_met: [false, false]
+
+  - card_id: gil
+    kind: vague
+    answer: "C'est un truc de concurrence en Python."
+    expected_met: [false, false]
+
+  - card_id: gil
+    kind: overcomplete
+    answer: |
+      Le GIL est un verrou global qui n'autorise qu'un seul thread à exécuter
+      du bytecode à la fois. Conséquence : pas de parallélisme CPU-bound, utile
+      pour l'I/O-bound. Par ailleurs, multiprocessing contourne le GIL en
+      créant des processus séparés.
+    expected_met: [true, true]
+
+  # --- new-init ---
+  - card_id: new-init
+    kind: perfect
+    answer: "`__new__` crée et retourne l'instance, `__init__` l'initialise et ne retourne rien."
+    expected_met: [true, true]
+
+  - card_id: new-init
+    kind: paraphrase
+    answer: |
+      `__init__` se contente d'initialiser l'objet déjà construit et renvoie
+      None, tandis que `__new__` fabrique et renvoie l'instance.
+    expected_met: [true, true]
+
+  - card_id: new-init
+    kind: partial
+    answer: "`__new__` est celui qui crée l'instance."
+    expected_met: [true, false]
+
+  - card_id: new-init
+    kind: partial
+    answer: "`__init__` initialise l'objet et retourne None."
+    expected_met: [false, true]
+
+  - card_id: new-init
+    kind: negation
+    answer: "`__init__` crée l'instance et `__new__` ne sert à rien."
+    expected_met: [false, false]
+
+  - card_id: new-init
+    kind: dont_know
+    answer: "Aucune idée."
+    expected_met: [false, false]
+
+  - card_id: new-init
+    kind: vague
+    answer: "Ce sont deux méthodes spéciales des classes."
+    expected_met: [false, false]
+
+  - card_id: new-init
+    kind: overcomplete
+    answer: |
+      `__new__` est la méthode qui crée et retourne la nouvelle instance, c'est
+      le vrai constructeur ; `__init__` initialise l'instance déjà créée et
+      retourne None. On peut surcharger `__new__` pour les singletons.
+    expected_met: [true, true]
+
+  # --- hashable ---
+  - card_id: hashable
+    kind: perfect
+    answer: |
+      Une clé doit être hashable, donc avoir un hash stable. Une liste est
+      mutable donc non hashable ; un tuple est hashable s'il ne contient que
+      des éléments hashables.
+    expected_met: [true, true, true]
+
+  - card_id: hashable
+    kind: paraphrase
+    answer: |
+      Les clés de dict exigent un hash qui ne change pas. Les listes, mutables,
+      n'en ont pas ; les tuples en ont un, à condition que leur contenu soit
+      lui-même hashable.
+    expected_met: [true, true, true]
+
+  - card_id: hashable
+    kind: partial
+    answer: "Parce qu'une clé doit être hashable."
+    expected_met: [true, false, false]
+
+  - card_id: hashable
+    kind: partial
+    answer: |
+      Une clé doit avoir un hash stable ; une liste est mutable donc pas
+      hashable, un tuple immuable l'est.
+    expected_met: [true, true, false]
+
+  - card_id: hashable
+    kind: partial
+    answer: "Un tuple n'est hashable que si ses éléments le sont."
+    expected_met: [false, false, true]
+
+  - card_id: hashable
+    kind: negation
+    answer: "Une liste peut servir de clé car elle est mutable."
+    expected_met: [false, false, false]
+
+  - card_id: hashable
+    kind: dont_know
+    answer: "Je ne me souviens plus."
+    expected_met: [false, false, false]
+
+  - card_id: hashable
+    kind: vague
+    answer: "C'est une histoire de hash."
+    expected_met: [false, false, false]
+
+  # --- is-eq ---
+  - card_id: is-eq
+    kind: perfect
+    answer: "`==` compare les valeurs, `is` compare l'identité (même objet en mémoire)."
+    expected_met: [true, true]
+
+  - card_id: is-eq
+    kind: paraphrase
+    answer: "`is` vérifie que c'est le même objet, `==` vérifie que les contenus sont égaux."
+    expected_met: [true, true]
+
+  - card_id: is-eq
+    kind: partial
+    answer: "`==` compare les valeurs."
+    expected_met: [true, false]
+
+  - card_id: is-eq
+    kind: partial
+    answer: "`is` teste l'identité des objets."
+    expected_met: [false, true]
+
+  - card_id: is-eq
+    kind: negation
+    answer: "`is` et `==` font exactement la même chose."
+    expected_met: [false, false]
+
+  - card_id: is-eq
+    kind: dont_know
+    answer: "Je ne sais pas."
+    expected_met: [false, false]
+
+  - card_id: is-eq
+    kind: vague
+    answer: "Ce sont deux opérateurs de comparaison."
+    expected_met: [false, false]
+
+  - card_id: is-eq
+    kind: overcomplete
+    answer: |
+      `==` compare les valeurs de deux objets (égalité), tandis que `is`
+      compare l'identité, c'est-à-dire si c'est le même objet en mémoire.
+      CPython interne certains petits entiers, ce qui peut rendre `is` vrai
+      pour eux.
+    expected_met: [true, true]
+
+  # --- mutable-default ---
+  - card_id: mutable-default
+    kind: perfect
+    answer: |
+      La valeur par défaut est évaluée une seule fois à la définition, donc la
+      même liste est partagée entre tous les appels et les mutations persistent.
+    expected_met: [true, true]
+
+  - card_id: mutable-default
+    kind: paraphrase
+    answer: |
+      L'argument par défaut est créé une seule fois au moment de définir la
+      fonction ; tous les appels se partagent donc la même liste, ce qui garde
+      les modifications.
+    expected_met: [true, true]
+
+  - card_id: mutable-default
+    kind: partial
+    answer: "La valeur par défaut est évaluée une seule fois, à la définition."
+    expected_met: [true, false]
+
+  - card_id: mutable-default
+    kind: partial
+    answer: "La même liste est partagée entre les appels, donc les mutations persistent."
+    expected_met: [false, true]
+
+  - card_id: mutable-default
+    kind: negation
+    answer: "Une nouvelle liste est créée à chaque appel, donc aucun piège."
+    expected_met: [false, false]
+
+  - card_id: mutable-default
+    kind: dont_know
+    answer: "Je ne sais pas."
+    expected_met: [false, false]
+
+  - card_id: mutable-default
+    kind: vague
+    answer: "C'est un problème de mutabilité."
+    expected_met: [false, false]
+
+  - card_id: mutable-default
+    kind: overcomplete
+    answer: |
+      La valeur par défaut est évaluée une seule fois à la définition de la
+      fonction, pas à chaque appel. La même liste est donc partagée et les
+      mutations persistent. La bonne pratique est d'utiliser None puis de créer
+      la liste dans le corps de la fonction.
+    expected_met: [true, true]

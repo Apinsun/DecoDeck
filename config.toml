@@ -1,0 +1,7 @@
+# DecoDeck configuration
+
+[model]
+provider = "ollama"            # preset : ollama | vllm | openai | custom
+model = "lfm2.5-8b-a1b:latest" # modèle par défaut (à changer librement)
+base_url = ""                  # optionnel : override l'URL du preset
+api_key = ""                   # optionnel : pour une API payante
