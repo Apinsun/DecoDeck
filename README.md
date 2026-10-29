@@ -91,11 +91,10 @@ quand la réponse est partielle — plutôt que de révéler immédiatement la s
 - [ ] Modèle local : lequel, à quelle taille (selon le GPU disponible)
 - [ ] Générateur : skill Pi vs script CLI autonome
 - [ ] Design du benchmark de calibration (taille, répartition des cas)
-- [ ] Format des decks : YAML vs JSONL
 
 ## Jalons
 
-- [ ] **M0 — Cadrage** : README + AGENTS.md (en cours)
+- [x] **M0 — Cadrage** : README + AGENTS.md + repo initialisé
 - [ ] **M1 — Format de deck + générateur** : quelques cartes, d'abord à la main
 - [ ] **M2 — Boucle de révision** : évaluation + FSRS + SQLite
 - [ ] **M3 — Relance socratique** : `interrupt` LangGraph + plafonnement de note
