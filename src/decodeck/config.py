@@ -22,6 +22,7 @@ class ModelConfig:
     model: str
     base_url: str
     api_key: str
+    thinking: bool | None = None  # None = défaut du modèle, False = désactivé
 
 
 @dataclass(frozen=True)
@@ -37,11 +38,14 @@ def load_config(path: Path = DEFAULT_CONFIG_PATH) -> Config:
     provider = model.get("provider", "ollama")
     base_url = model.get("base_url") or PROVIDER_BASE_URLS.get(provider, "")
 
+    thinking = model.get("thinking")
+
     return Config(
         model=ModelConfig(
             provider=provider,
             model=model.get("model", ""),
             base_url=base_url,
             api_key=model.get("api_key", ""),
+            thinking=thinking if isinstance(thinking, bool) else None,
         )
     )

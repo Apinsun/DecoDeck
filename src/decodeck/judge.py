@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from typing import Any
 
 from openai import OpenAI
 
@@ -69,12 +70,38 @@ def _parse_json(text: str) -> dict:
         return json.loads(match.group(0))
 
 
+def parse_verdict(data: dict, n_criteria: int) -> tuple[list[bool], str]:
+    """Validate and extract a model verdict from parsed JSON."""
+    raw = data.get("met_criteria")
+    if not isinstance(raw, list):
+        raise ValueError(f"met_criteria inattendu (attendu une liste, reçu {raw!r})")
+    if len(raw) != n_criteria:
+        raise ValueError(f"met_criteria a {len(raw)} éléments, attendu {n_criteria}")
+    return [bool(x) for x in raw], str(data.get("explanation", ""))
+
+
+MAX_RETRIES = 2  # nombre de nouvelles tentatives après le premier essai
+
+
+def _format_guidance(n_criteria: int, bad_output: str) -> str:
+    """Instruction renvoyée au modèle après une sortie malformée."""
+    return (
+        "Ta réponse précédente ne respecte pas le format demandé.\n\n"
+        f"Réponse reçue : {bad_output}\n\n"
+        "Corrige-la : réponds UNIQUEMENT avec un objet JSON valide, sans texte "
+        "autour, au format exact {\"met_criteria\": [true, false, ...], "
+        "\"explanation\": \"...\"}. met_criteria doit être une LISTE de "
+        f"{n_criteria} booléens (un par critère, dans l'ordre)."
+    )
+
+
 def judge_card(
     question: str,
     reference_answer: str,
     rubric: list[str],
     user_answer: str,
     config: Config,
+    max_retries: int = MAX_RETRIES,
 ) -> Verdict:
     """Grade ``user_answer`` against ``rubric`` and return a verdict."""
     client = OpenAI(
@@ -90,21 +117,38 @@ def judge_card(
         + f"\n\nRéponse de l'utilisateur : {user_answer}\n"
     )
 
-    response = client.chat.completions.create(
-        model=config.model.model,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.0,
-        response_format={"type": "json_object"},
-    )
+    kwargs: dict[str, Any] = {}
+    if config.model.thinking is False:
+        kwargs["reasoning_effort"] = "none"  # désactive le "thinking" (Ollama /v1)
 
-    data = _parse_json(response.choices[0].message.content or "")
-    met = [bool(x) for x in data.get("met_criteria", [])]
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt},
+    ]
 
-    return Verdict(
-        met_criteria=met,
-        explanation=str(data.get("explanation", "")),
-        grade=grade_from_criteria(met),
-    )
+    last_error: Exception | None = None
+    for _attempt in range(max_retries + 1):
+        response = client.chat.completions.create(
+            model=config.model.model,
+            messages=messages,
+            temperature=0.0,
+            response_format={"type": "json_object"},
+            **kwargs,
+        )
+        raw = response.choices[0].message.content or ""
+        try:
+            data = _parse_json(raw)
+            met, explanation = parse_verdict(data, len(rubric))
+            return Verdict(
+                met_criteria=met,
+                explanation=explanation,
+                grade=grade_from_criteria(met),
+            )
+        except ValueError as exc:  # JSON invalide ou forme inattendue
+            last_error = exc
+            messages.append({"role": "assistant", "content": raw})
+            messages.append(
+                {"role": "user", "content": _format_guidance(len(rubric), raw)}
+            )
+
+    raise ValueError(f"juge en échec après {max_retries + 1} tentatives : {last_error}")

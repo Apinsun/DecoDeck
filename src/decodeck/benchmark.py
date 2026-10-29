@@ -7,6 +7,8 @@ kind.
 
 from __future__ import annotations
 
+import statistics
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -28,6 +30,7 @@ class SampleResult:
     expected: int
     obtained: int | None = None
     error: str | None = None
+    latency_seconds: float | None = None
 
 
 @dataclass
@@ -51,6 +54,7 @@ def run_benchmark(
         expected = grade_from_criteria([bool(x) for x in sample["expected_met"]])
 
         try:
+            start = time.perf_counter()
             verdict = judge_card(
                 card["question"],
                 card["reference_answer"],
@@ -58,10 +62,17 @@ def run_benchmark(
                 sample["answer"],
                 config,
             )
+            latency = time.perf_counter() - start
             obtained = verdict.grade
-            result.samples.append(SampleResult(sample["kind"], expected, obtained))
+            result.samples.append(
+                SampleResult(sample["kind"], expected, obtained, latency_seconds=latency)
+            )
             if verbose:
-                print(f"  [{i:2d}] {sample['kind']:<12} attendu={expected} obtenu={obtained}", flush=True)
+                print(
+                    f"  [{i:2d}] {sample['kind']:<12} attendu={expected} "
+                    f"obtenu={obtained} ({latency:.1f}s)",
+                    flush=True,
+                )
         except Exception as exc:  # noqa: BLE001 — report the failure and continue
             result.samples.append(
                 SampleResult(sample["kind"], expected, error=f"{type(exc).__name__}: {exc}")
@@ -116,12 +127,22 @@ def summarize(result: BenchmarkResult) -> dict[str, Any]:
         sub = [s for s in ok if s.kind == kind]
         by_kind[kind] = sum(1 for s in sub if s.obtained == s.expected) / len(sub)
 
+    latencies = [s.latency_seconds for s in ok if s.latency_seconds is not None]
+    latency_stats: dict[str, float] = {}
+    if latencies:
+        latency_stats["avg"] = sum(latencies) / len(latencies)
+        latency_stats["median"] = statistics.median(latencies)
+        latency_stats["p90"] = (
+            statistics.quantiles(latencies, n=10)[8] if len(latencies) >= 10 else max(latencies)
+        )
+
     return {
         "total": len(result.samples),
         "errors": result.errors,
         "exact": exact,
         "kappa": kappa,
         "by_kind": by_kind,
+        "latency": latency_stats,
     }
 
 
@@ -132,11 +153,84 @@ def report(result: BenchmarkResult) -> str:
         f"échantillons : {m['total']} (erreurs : {m['errors']})",
         f"exact match   : {m['exact']:.1%}",
         f"Cohen's kappa : {m['kappa']:.3f}",
-        "par catégorie :",
     ]
+    if m["latency"]:
+        lat = m["latency"]
+        lines.append(
+            f"latence       : moyenne {lat['avg']:.1f}s · médiane {lat['median']:.1f}s · p90 {lat['p90']:.1f}s"
+        )
+    lines.append("par catégorie :")
     for kind, acc in m["by_kind"].items():
         lines.append(f"  {kind:<12} {acc:.0%}")
     return "\n".join(lines)
+
+
+def run_configs(
+    dataset: dict[str, Any],
+    configs: dict[str, Config],
+    verbose: bool = True,
+) -> dict[str, BenchmarkResult]:
+    """Run the benchmark for several named configs."""
+    results: dict[str, BenchmarkResult] = {}
+    for name, config in configs.items():
+        print(f"\n=== {name} ===", flush=True)
+        results[name] = run_benchmark(dataset, config, verbose=verbose)
+        print(report(results[name]))
+    return results
+
+
+def plot_results(named_metrics: dict[str, dict[str, Any]], out_path: Path) -> None:
+    """Bar charts: exact match, kappa, and average latency per run."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    names = list(named_metrics)
+    exact = [named_metrics[n]["exact"] * 100 for n in names]
+    kappa = [named_metrics[n]["kappa"] for n in names]
+    avg_lat = [named_metrics[n]["latency"].get("avg", 0.0) for n in names]
+
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+    axes[0].bar(names, exact)
+    axes[0].set_ylim(0, 100)
+    axes[0].set_title("Exact match (%)")
+    axes[1].bar(names, kappa)
+    axes[1].set_ylim(0, 1)
+    axes[1].set_title("Cohen's kappa")
+    axes[2].bar(names, avg_lat)
+    axes[2].set_title("Latence moyenne (s)")
+    for ax in axes:
+        ax.tick_params(axis="x", labelrotation=20)
+    fig.tight_layout()
+    fig.savefig(out_path)
+    plt.close(fig)
+
+
+def plot_per_kind(named_metrics: dict[str, dict[str, Any]], out_path: Path) -> None:
+    """Grouped bar chart of per-kind accuracy."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    kinds = sorted({k for m in named_metrics.values() for k in m["by_kind"]})
+    names = list(named_metrics)
+    x = range(len(kinds))
+    width = 0.8 / len(names)
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    for i, name in enumerate(names):
+        vals = [named_metrics[name]["by_kind"].get(k, 0.0) * 100 for k in kinds]
+        ax.bar([xi + i * width for xi in x], vals, width, label=name)
+    ax.set_xticks([xi + width * (len(names) - 1) / 2 for xi in x])
+    ax.set_xticklabels(kinds)
+    ax.set_ylim(0, 100)
+    ax.set_ylabel("Précision (%)")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(out_path)
+    plt.close(fig)
 
 
 def main(argv: list[str] | None = None) -> int:
