@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "decodeck"
+version = "0.1.0"
+description = "Local-first Socratic spaced repetition for code and courses."
+authors = ["Arnaud PINSUN <arnaudpinsun@gmail.com>"]
+readme = "README.md"
+packages = [{ include = "decodeck", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pyyaml = "^6.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+
+[tool.poetry.scripts]
+deck-lint = "decodeck.deck_lint:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
