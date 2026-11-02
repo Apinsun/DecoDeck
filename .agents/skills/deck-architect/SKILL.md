@@ -35,4 +35,7 @@ Lis `references/schema.md` (schéma condensé) et `assets/example-deck.yaml`
 - **Rubric discriminante** : 2-3 critères indépendants, qui permettent de juger
   une réponse *partielle*. Pas un seul gros critère.
 - **Réponse de référence concise** : 2-3 phrases, pas un pavé.
+- **Explication didactique** (champ `explanation`, optionnel) : 3-5 phrases qui
+  expliquent le « pourquoi » — c'est ce que l'utilisateur lira quand il se
+  trompe. Distincte de la réponse de référence.
 - Questions et réponses en **français**.

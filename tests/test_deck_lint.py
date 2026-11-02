@@ -61,3 +61,12 @@ def test_url_anchor_is_a_warning(tmp_path):
     card = make_card(source_anchor="https://docs.python.org/3/glossary.html")
     issues = validate_deck(make_deck([card]), base_dir=tmp_path)
     assert any(i.severity == "warning" and "non vérifiable" in i.message for i in issues)
+
+
+def test_explanation_is_optional_string():
+    valid = make_card(explanation="Un verrou unique qui protège l'état interne.")
+    assert validate_deck(make_deck([valid])) == []
+
+    empty = make_card(explanation="")
+    issues = validate_deck(make_deck([empty]))
+    assert any("explanation" in i.location for i in issues)

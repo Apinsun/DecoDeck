@@ -17,6 +17,11 @@ cards:
     grading_rubric:
       - "Résolution récursive du graphe de dépendances"
       - "Cache par requête, pas de double exécution"
+    explanation: |
+      FastAPI construit un graphe de dépendances à partir des annotations
+      Depends(), le résout récursivement, et met en cache les résultats pour
+      la durée de la requête. Ce cache évite de réexécuter une dépendance
+      partagée entre deux chemins.
 
   - id: fastapi-yield-01
     question: |
@@ -29,3 +34,9 @@ cards:
     grading_rubric:
       - "Code avant le yield exécuté au début de la requête"
       - "Code après le yield (nettoyage) exécuté à la fin"
+    explanation: |
+      Une dépendance avec yield se comporte comme un gestionnaire de
+      contexte : la partie avant le yield s'exécute quand la dépendance est
+      résolue, la partie après s'exécute à la fin de la requête. C'est le
+      mécanisme prévu par FastAPI pour la mise en place et le nettoyage
+      (ouvrir/fermer une session de base de données, par exemple).

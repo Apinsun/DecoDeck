@@ -82,6 +82,8 @@ def run_review(deck_path: Path, limit: int | None = None) -> int:
         print(f"  Référence : {card['reference_answer']}")
         if card.get("source_anchor"):
             print(f"  Source : {card['source_anchor']}")
+        if card.get("explanation"):
+            print(f"  Explication : {card['explanation']}")
         print()
         reviewed += 1
 

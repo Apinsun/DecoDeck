@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Decks disponibles</h2>
+{% if decks %}
+  <ul class="deck-list">
+  {% for d in decks %}
+    <li>
+      <a href="/deck/{{ d.id }}">{{ d.title }}</a>
+      <span class="muted">({{ d.count }} cartes)</span>
+    </li>
+  {% endfor %}
+  </ul>
+{% else %}
+  <p>Aucun deck dans <code>decks/</code>.</p>
+{% endif %}
+{% endblock %}

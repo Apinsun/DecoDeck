@@ -14,6 +14,12 @@ cards:
       - "Un seul thread exécute du bytecode à la fois"
       - "Pas de parallélisme CPU-bound, utile pour l'I/O-bound"
     source_anchor: "docs.python.org/3/glossary.html#term-global-interpreter-lock"
+    explanation: |
+      Le GIL est un verrou unique qui protège l'état interne de CPython. Un
+      seul thread exécute du bytecode à la fois, donc le multithreading
+      n'accélère pas le calcul (CPU-bound). Pour de l'I/O (réseau, disque),
+      les threads restent utiles car le verrou est relâché pendant l'attente.
+      Pour paralléliser du calcul, on passe par multiprocessing.
 
   - id: python-fundamentals-new-vs-init
     question: "Quelle est la différence entre `__new__` et `__init__` ?"
@@ -24,6 +30,12 @@ cards:
       - "`__new__` crée et retourne l'instance"
       - "`__init__` initialise et retourne None"
     source_anchor: "docs.python.org/3/reference/datamodel.html#object.__new__"
+    explanation: |
+      La création d'un objet se fait en deux temps : __new__ (méthode de
+      classe) alloue et retourne l'instance — c'est le vrai constructeur ;
+      __init__ initialise ensuite cette instance déjà créée et ne retourne
+      rien (None). On surcharge __new__ rarement : immutables, singletons,
+      sous-classes de types natifs.
 
   - id: python-fundamentals-hashable-keys
     question: |
@@ -38,6 +50,12 @@ cards:
       - "Mutable = non hashable (liste), immuable = hashable (tuple)"
       - "Nuance : tuple non hashable s'il contient un élément mutable"
     source_anchor: "docs.python.org/3/glossary.html#term-hashable"
+    explanation: |
+      Un dict repose sur une table de hachage : il hache la clé pour retrouver
+      la valeur. Si une clé pouvait changer (comme une liste modifiée), son
+      hash changerait et la valeur deviendrait introuvable. Une clé doit donc
+      être hashable, donc immuable. Un tuple est immuable, donc hashable —
+      sauf s'il contient un élément mutable comme une liste.
 
   - id: python-fundamentals-is-vs-eq
     question: "Quelle est la différence entre `is` et `==` ?"
@@ -48,6 +66,12 @@ cards:
       - "`==` compare les valeurs"
       - "`is` compare l'identité (même objet)"
     source_anchor: "docs.python.org/3/reference/expressions.html#is"
+    explanation: |
+      == appelle __eq__ et compare les valeurs (le contenu). is compare les
+      identités : vrai seulement si les deux noms désignent le même objet en
+      mémoire. CPython interne certains petits entiers et chaînes, donc is
+      peut être vrai « par accident » pour eux — ne jamais l'utiliser pour
+      comparer des valeurs.
 
   - id: python-fundamentals-mutable-default
     question: "Pourquoi `def f(x=[])` est-il un piège ?"
@@ -59,3 +83,9 @@ cards:
       - "Évaluée une seule fois, à la définition"
       - "Objet partagé entre appels → mutations persistantes"
     source_anchor: "docs.python.org/3/tutorial/controlflow.html#default-argument-values"
+    explanation: |
+      Les valeurs par défaut sont évaluées une seule fois, à la définition de
+      la fonction, puis réutilisées à chaque appel. Avec une liste, tous les
+      appels partagent le même objet : une mutation dans un appel persiste au
+      suivant. La parade : mettre None par défaut et créer la liste dans le
+      corps de la fonction.

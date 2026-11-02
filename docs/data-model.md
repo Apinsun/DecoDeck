@@ -28,6 +28,7 @@ Document de référence pour le format des decks. **Statut : décidé (M1).**
 | `reference_answer` | string | oui | Réponse de référence, concise (2-3 phrases) |
 | `grading_rubric` | liste de string | oui | 2 à 3 critères vérifiables et indépendants |
 | `source_anchor` | string | non | Pointeur vers la source (fichier + lignes, ou section) |
+| `explanation` | string | non | Explication didactique affichée après la révision |
 
 ## Règles de validation
 
@@ -38,6 +39,8 @@ Document de référence pour le format des decks. **Statut : décidé (M1).**
 - Un critère est une phrase courte et vérifiable indépendamment
   (« mentionner X », « préciser Y »), pas une question.
 - `question` et `reference_answer` non vides.
+- `explanation` : chaîne non vide si présente. Elle est didactique (explique le
+  « pourquoi ») et s'affiche après la révision, surtout en cas de Again/Hard.
 
 Ces règles seront appliquées par un loader Python au chargement (M2).
 
@@ -64,6 +67,11 @@ cards:
     grading_rubric:
       - "Résolution récursive de l'arbre de dépendances"
       - "Cache par requête, pas de double exécution"
+    explanation: |
+      FastAPI construit un graphe de dépendances à partir des annotations
+      Depends(), le résout récursivement, et met en cache les résultats pour
+      la durée de la requête. C'est ce cache qui évite de réexécuter une même
+      dépendance si deux chemins la déclarent.
 ```
 
 ## Évolution prévue

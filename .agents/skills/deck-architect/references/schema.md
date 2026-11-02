@@ -15,6 +15,7 @@ cards:
       - "..."
       - "..."
     source_anchor: "..."       # optionnel : fichier.py:Ldébut-fin ou section
+    explanation: "..."        # optionnel : explication didactique post-révision
 ```
 
 ## Règles de validation (appliquées par `deck-lint`)
@@ -24,4 +25,6 @@ cards:
 - `grading_rubric` : entre 2 et 3 critères.
 - `source_anchor` au format `fichier:Ldébut-fin` → le fichier doit exister
   (sinon erreur). Autre format (URL, section) → simple avertissement.
+- `explanation` (optionnel) : 3-5 phrases didactiques qui expliquent le
+  « pourquoi » — affichées après la révision, surtout en cas d'échec.
 - Chaînes multi-lignes : utiliser `|` (bloc littéral, préserve les retours).

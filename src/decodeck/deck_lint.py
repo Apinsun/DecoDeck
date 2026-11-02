@@ -17,7 +17,7 @@ import yaml
 #: Card fields that must be present.
 REQUIRED_FIELDS = ("id", "question", "reference_answer", "grading_rubric")
 #: Card fields that may be present.
-OPTIONAL_FIELDS = ("source_anchor",)
+OPTIONAL_FIELDS = ("source_anchor", "explanation")
 
 #: Deck/card identifiers: lowercase words separated by single hyphens.
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -151,6 +151,10 @@ def _validate_card(
             issues.append(Issue("error", f"{location}.source_anchor", "doit être une chaîne non vide"))
         else:
             _check_anchor(anchor, f"{location}.source_anchor", base_dir, issues)
+
+    explanation = card.get("explanation")
+    if explanation is not None and (not isinstance(explanation, str) or not explanation.strip()):
+        issues.append(Issue("error", f"{location}.explanation", "doit être une chaîne non vide"))
 
 
 def _check_anchor(anchor: str, location: str, base_dir: Path, issues: list[Issue]) -> None:

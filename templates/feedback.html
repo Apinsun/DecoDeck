@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ deck.title }}</h2>
+<div class="card">
+  <p class="question">{{ card.question }}</p>
+  <p class="muted">Votre réponse : {{ answer }}</p>
+</div>
+
+{% if judge_error %}
+  <p class="error">Le juge a échoué : {{ judge_error }}</p>
+  <p><a href="/deck/{{ deck.id }}">Réessayer</a></p>
+{% else %}
+  <div class="verdict">
+    <p class="grade grade-{{ grade }}">Note : {{ grade_name }} ({{ grade }})</p>
+    <ul class="criteria">
+      {% for criterion, met in criteria_pairs %}
+        <li class="{{ 'met' if met else 'missed' }}">{{ '✓' if met else '✗' }} {{ criterion }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="reference">
+    <p><strong>Référence :</strong> {{ card.reference_answer }}</p>
+    {% if explanation %}
+      <div class="explanation">
+        <p><strong>Explication :</strong> {{ explanation }}</p>
+      </div>
+    {% endif %}
+    {% if card.source_anchor %}<p class="muted">Source : {{ card.source_anchor }}</p>{% endif %}
+    {% if next_due %}<p>Prochaine révision : {{ next_due.strftime('%Y-%m-%d') }}</p>{% endif %}
+  </div>
+  {% if judge_explanation %}
+    <details class="judge-detail">
+      <summary>Détail du juge</summary>
+      <p class="muted">{{ judge_explanation }}</p>
+    </details>
+  {% endif %}
+  <p><a class="button" href="/deck/{{ deck.id }}">Carte suivante →</a></p>
+{% endif %}
+{% endblock %}
