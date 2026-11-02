@@ -1,0 +1,31 @@
+# EXEMPLE ILLUSTRATIF (few-shot).
+# Imite la STRUCTURE, adapte le CONTENU. Les anchors sont indicatifs :
+# ils doivent pointer vers de VRAIS fichiers de la source étudiée.
+
+id: fastapi-internals
+title: "FastAPI — internals"
+cards:
+  - id: fastapi-dep-01
+    source_anchor: "fastapi/dependencies/utils.py"
+    question: |
+      Comment FastAPI résout-il une sous-dépendance déclarée avec Depends(),
+      et comment évite-t-il de l'exécuter deux fois dans la même requête ?
+    reference_answer: |
+      Il construit un graphe de dépendances (Dependant), résolu récursivement
+      par solve_dependencies, et met en cache les résultats pour la durée de
+      la requête (use_cache=True par défaut).
+    grading_rubric:
+      - "Résolution récursive du graphe de dépendances"
+      - "Cache par requête, pas de double exécution"
+
+  - id: fastapi-yield-01
+    question: |
+      Quelle est la différence entre une dépendance déclarée avec yield et
+      une dépendance classique ?
+    reference_answer: |
+      Une dépendance avec yield s'exécute en deux temps : le code avant le
+      yield au début de la requête, le code après (nettoyage) à la fin de la
+      requête. Une dépendance classique ne s'exécute qu'une fois, au début.
+    grading_rubric:
+      - "Code avant le yield exécuté au début de la requête"
+      - "Code après le yield (nettoyage) exécuté à la fin"
