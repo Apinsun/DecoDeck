@@ -18,9 +18,9 @@ from fastapi.templating import Jinja2Templates
 
 from decodeck.chat import ask_question
 from decodeck.config import load_config
-from decodeck.judge import cap_grade_after_hint, generate_hint, judge_card
+from decodeck.judge import cap_grade_after_hint, combine_after_hint, generate_hint, judge_card
 from decodeck.scheduler import apply_review
-from decodeck.storage import init_db, load_state, log_review, save_state
+from decodeck.storage import deck_stats, init_db, load_state, log_review, missed_card_ids, save_state
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DECKS_DIR = BASE_DIR / "decks"
@@ -32,6 +32,9 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 RATING_NAMES = {1: "Again", 2: "Hard", 3: "Good", 4: "Easy"}
+
+#: In-memory cram sessions (local, single-user): "<deck_id>:<mode>" -> cards left.
+_cram_sessions: dict[str, list[str]] = {}
 
 
 def _list_decks() -> list[dict]:
@@ -51,12 +54,61 @@ def _load_deck(deck_id: str) -> dict | None:
 
 
 def _next_due_card(deck: dict, conn, now: datetime) -> dict | None:
-    """First card of the deck that is new or due."""
+    """Next card to review: never-seen cards first, then due cards (deck order).
+
+    This gives a full pass over the deck before any relearning card reappears,
+    even when a failed card becomes due again mid-session.
+    """
+    for card in deck["cards"]:
+        if load_state(conn, card["id"]) is None:
+            return card
     for card in deck["cards"]:
         state = load_state(conn, card["id"])
-        if state is None or state.due <= now:
+        if state.due <= now:
             return card
     return None
+
+
+CRAM_MODES = ("all", "missed")
+
+
+def _cram_key(deck_id: str, mode: str) -> str:
+    return f"{deck_id}:{mode}"
+
+
+def _cram_queue(deck: dict, deck_id: str, mode: str, conn) -> list[str]:
+    """Return (and lazily create) the cram pass queue for a deck + mode."""
+    key = _cram_key(deck_id, mode)
+    queue = _cram_sessions.get(key)
+    if queue is None:
+        if mode == "missed":
+            missed = missed_card_ids(conn, deck_id)
+            queue = [card["id"] for card in deck["cards"] if card["id"] in missed]
+        else:
+            queue = [card["id"] for card in deck["cards"]]
+        _cram_sessions[key] = queue
+    return queue
+
+
+def _cram_next_card(deck: dict, deck_id: str, mode: str, conn) -> dict | None:
+    queue = _cram_queue(deck, deck_id, mode, conn)
+    if not queue:
+        return None
+    return next(card for card in deck["cards"] if card["id"] == queue[0])
+
+
+def _cram_pop(deck_id: str, mode: str, card_id: str) -> None:
+    """Mark ``card_id`` done in the cram pass; drop the session when empty."""
+    key = _cram_key(deck_id, mode)
+    queue = _cram_sessions.get(key)
+    if not queue:
+        return
+    try:
+        queue.remove(card_id)
+    except ValueError:
+        pass
+    if not queue:
+        _cram_sessions.pop(key, None)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -65,15 +117,35 @@ def home(request: Request):
 
 
 @app.get("/deck/{deck_id}", response_class=HTMLResponse)
-def review(request: Request, deck_id: str):
+def review(request: Request, deck_id: str, cram: str = ""):
     deck = _load_deck(deck_id)
     if deck is None:
         return RedirectResponse("/", status_code=303)
 
     conn = init_db()
     now = datetime.now(timezone.utc)
-    card = _next_due_card(deck, conn, now)
-    return templates.TemplateResponse(request, "review.html", {"deck": deck, "card": card})
+    if cram in CRAM_MODES:
+        card = _cram_next_card(deck, deck_id, cram, conn)
+    else:
+        card = _next_due_card(deck, conn, now)
+
+    if card is None:
+        counts = deck_stats(conn, deck_id)
+        return templates.TemplateResponse(
+            request,
+            "done.html",
+            {
+                "deck": deck,
+                "counts": counts,
+                "total_reviews": sum(counts.values()),
+                "missed_count": len(missed_card_ids(conn, deck_id)),
+            },
+        )
+    return templates.TemplateResponse(
+        request,
+        "review.html",
+        {"deck": deck, "card": card, "cram": cram},
+    )
 
 
 @app.post("/deck/{deck_id}/answer", response_class=HTMLResponse)
@@ -83,6 +155,8 @@ def answer(
     card_id: str = Form(...),
     answer: str = Form(...),
     hint_pending: str = Form(""),
+    first_answer: str = Form(""),
+    cram: str = Form(""),
 ):
     deck = _load_deck(deck_id)
     card = next((c for c in deck["cards"] if c["id"] == card_id), None) if deck else None
@@ -94,6 +168,7 @@ def answer(
     config = load_config()
     answer = answer.strip() or "Je ne sais pas."
     is_hint_pending = hint_pending == "true"
+    judged_answer = combine_after_hint(first_answer, answer) if is_hint_pending else answer
 
     grade = None
     criteria_pairs: list[tuple[str, bool]] = []
@@ -106,7 +181,7 @@ def answer(
             card["question"],
             card["reference_answer"],
             card["grading_rubric"],
-            answer,
+            judged_answer,
             config,
         )
         grade = verdict.grade
@@ -133,6 +208,7 @@ def answer(
                     "deck": deck,
                     "card": card,
                     "answer": answer,
+                    "cram": cram,
                     "criteria_pairs": criteria_pairs,
                     "hint": hint,
                 },
@@ -148,6 +224,8 @@ def answer(
         save_state(conn, new_state)
         log_review(conn, card_id, grade, new_state.state, now)
         next_due = new_state.due
+        if cram in CRAM_MODES:
+            _cram_pop(deck_id, cram, card_id)
 
     return templates.TemplateResponse(
         request,
@@ -155,7 +233,7 @@ def answer(
         {
             "deck": deck,
             "card": card,
-            "answer": answer,
+            "answer": judged_answer,
             "grade": grade,
             "grade_name": RATING_NAMES.get(grade),
             "criteria_pairs": criteria_pairs,
@@ -164,6 +242,7 @@ def answer(
             "judge_error": judge_error,
             "next_due": next_due,
             "hint_used": is_hint_pending,
+            "cram_mode": cram if cram in CRAM_MODES and _cram_key(deck_id, cram) in _cram_sessions else "",
         },
     )
 

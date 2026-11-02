@@ -9,7 +9,7 @@ from pathlib import Path
 import yaml
 
 from decodeck.config import load_config
-from decodeck.judge import cap_grade_after_hint, generate_hint, judge_card
+from decodeck.judge import cap_grade_after_hint, combine_after_hint, generate_hint, judge_card
 from decodeck.scheduler import apply_review
 from decodeck.storage import init_db, load_state, log_review, save_state
 
@@ -87,7 +87,7 @@ def run_review(deck_path: Path, limit: int | None = None) -> int:
                             card["question"],
                             card["reference_answer"],
                             card["grading_rubric"],
-                            second,
+                            combine_after_hint(answer, second),
                             config,
                         )
                         grade = cap_grade_after_hint(verdict2.grade)

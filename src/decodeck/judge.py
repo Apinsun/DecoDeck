@@ -69,6 +69,19 @@ def cap_grade_after_hint(grade: int) -> int:
     return min(grade, 2)
 
 
+def combine_after_hint(first_answer: str, new_answer: str) -> str:
+    """Merge the pre-hint and post-hint answers for re-grading.
+
+    The judge must see the whole answer, otherwise information given before
+    the hint is reported as missing.
+    """
+    first = first_answer.strip()
+    new = new_answer.strip()
+    if not first:
+        return new
+    return f"Réponse initiale : {first}\nRéponse après indice : {new}"
+
+
 def _parse_json(text: str) -> dict:
     """Parse model output leniently (models often wrap JSON in prose)."""
     text = text.strip()

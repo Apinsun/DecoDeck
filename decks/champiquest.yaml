@@ -1,0 +1,530 @@
+id: champiquest
+title: "ChampiQuest — appropriation du projet"
+cards:
+  # ─────────────────────────── Partie 1 · Données ───────────────────────────
+  - id: champiquest-absence-probleme
+    source_anchor: "../ChampiQuest/src/champiquest/data/make_dataset.py:L296"
+    question: |
+      Pourquoi le jeu de données GBIF pose-t-il un problème d'absences pour
+      entraîner un modèle de pousse ?
+    reference_answer: |
+      GBIF ne contient que des présences (observations positives) : on sait où
+      un champignon a été vu, jamais où il n'était pas. Or un classifieur a
+      besoin de négatifs pour apprendre. Il faut donc fabriquer des absences.
+    grading_rubric:
+      - "GBIF = présences uniquement, pas d'absences"
+      - "Un classifieur a besoin de négatifs"
+    explanation: |
+      Un modèle de classification apprend à séparer des exemples positifs et
+      négatifs. Si on n'a que des positifs (champignon observé), le modèle ne
+      peut pas apprendre quand il NE pousse PAS. C'est le cœur du problème :
+      les données naturalistes enregistrent les trouvailles, pas les
+      non-trouvailles.
+
+  - id: champiquest-effort-prouve
+    source_anchor: "../ChampiQuest/src/champiquest/data/make_dataset.py:L327-335"
+    question: |
+      Comment fabrique-t-on une pseudo-absence « à effort prouvé » ?
+    reference_answer: |
+      Au même point et à la même période, un AUTRE champignon a été observé
+      sans notre espèce cible. C'est la preuve que quelqu'un a cherché (effort)
+      et n'a pas trouvé la cible : un négatif crédible, pas « personne n'est
+      sorti ».
+    grading_rubric:
+      - "Un autre champignon vu au même endroit/période, sans la cible"
+      - "Effort prouvé = on a regardé, pas trouvé"
+    explanation: |
+      Une absence naïve (date et lieu aléatoires) encode « personne n'est sorti
+      ce jour-là », pas un signal biologique. En exigeant qu'une AUTRE espèce
+      ait été vue au même moment, on garantit qu'un cueilleur était sur place :
+      l'absence de la cible devient alors réellement significative.
+
+  - id: champiquest-fenetre-saison
+    source_anchor: "../ChampiQuest/src/champiquest/data/make_dataset.py:L191-198"
+    question: |
+      Comment définit-on les fenêtres de fructification, et à quoi servent-elles ?
+    reference_answer: |
+      On prend les percentiles 5 % et 95 % du jour-de-l'année des observations,
+      avec un tampon de ±14 jours. Elles bornent le tirage des absences (en
+      saison) et la carte (hors saison = non applicable).
+    grading_rubric:
+      - "Percentiles 5/95 % du jour de l'année, buffer de 14 jours"
+      - "Borne les absences et la carte hors saison"
+    explanation: |
+      Une morille ne fructifie pas en septembre : une absence en hiver serait
+      triviale et n'apprendrait rien. La fenêtre, déduite des données, rend
+      chaque absence « en saison » et crédible, et délimite le domaine de
+      validité du modèle — on ne prétend rien prédire hors saison.
+
+  - id: champiquest-precision-gbif
+    source_anchor: "../ChampiQuest/reports/partie-1-prediction-pousse.md"
+    question: |
+      Pourquoi la précision des coordonnées GBIF plafonne-t-elle le modèle de pousse ?
+    reference_answer: |
+      Les coordonnées sont souvent floutées ou arrondies (~0,5 à 1 km). On ne
+      peut donc pas relier une observation à son micro-habitat (l'arbre,
+      l'exposition), et les features d'habitat fin (occupation du sol, relief)
+      n'ont quasiment aucun signal.
+    grading_rubric:
+      - "Coordonnées floutées, ~0,5 à 1 km"
+      - "Impossible de relier à l'habitat fin → features habitat quasi mortes"
+    explanation: |
+      Le modèle voudrait apprendre « tel type de forêt → telle espèce », mais si
+      la géolocalisation est à ±1 km, la classe d'occupation du sol au point est
+      souvent fausse. La donnée météo est fine ; la donnée d'habitat est limitée
+      par la précision GPS. C'est le vrai goulot du projet.
+
+  - id: champiquest-proxies
+    source_anchor: "../ChampiQuest/reports/feature-engineering.md"
+    question: |
+      Que sont les « proxies », et pourquoi les ajoute-t-on à l'entraînement ?
+    reference_answer: |
+      Des espèces qui co-fructifient fortement avec la cible, ajoutées comme
+      présences de la cible. Elles augmentent le volume de positifs quand
+      l'espèce cible est rare, sans ajouter de feature (donc sans fuite de
+      cofructification).
+    grading_rubric:
+      - "Espèces co-fructifiantes ajoutées comme présences de la cible"
+      - "Pallie le manque de données, sans feature qui fuirait"
+    explanation: |
+      L'idée initiale utilisait la cofructification comme feature, mais elle est
+      indisponible en production (fuite). On l'exploite autrement : si une espèce
+      voisine pousse au même endroit au même moment, l'habitat est favorable à la
+      cible, donc on l'ajoute comme positif d'entraînement.
+
+  - id: champiquest-rng-seeds
+    source_anchor: "../ChampiQuest/src/champiquest/data/make_dataset.py:L398"
+    question: |
+      Pourquoi utilise-t-on un générateur aléatoire par espèce, avec des graines figées ?
+    reference_answer: |
+      Les pseudo-absences sont tirées aléatoirement. Un RNG global dépend de
+      l'ordre de traitement des espèces ; un RNG par espèce, avec graine figée,
+      rend chaque jeu d'absences reproductible et indépendant de l'ordre.
+    grading_rubric:
+      - "RNG par espèce, pas un RNG global"
+      - "Graines figées → dataset reproductible"
+    explanation: |
+      Si le tirage dépend de l'ordre d'itération sur les espèces, ajouter une
+      espèce change les absences des autres. Figer une graine par espèce rend le
+      dataset déterministe : un même build produit les mêmes absences, ce qui
+      est indispensable pour comparer des modèles honnêtement.
+
+  # ──────────────────────── Partie 1 · Modélisation ────────────────────────
+  - id: champiquest-un-modele-par-espece
+    source_anchor: "../ChampiQuest/reports/feature-engineering.md"
+    question: |
+      Pourquoi un modèle par espèce plutôt qu'un seul modèle multi-espèces ?
+    reference_answer: |
+      Un modèle unique avec l'espèce en feature mémorise les taux de base et
+      dilue sa capacité : la morille (espèce de printemps, minoritaire)
+      s'effondre à 0,465. Un modèle par espèce force chacun à apprendre la
+      relation météo → pousse de SA propre espèce.
+    grading_rubric:
+      - "Modèle unique = raccourci de prévalence + dilution de capacité"
+      - "Un modèle par espèce force le signal météo propre"
+    explanation: |
+      L'ablation montre que le modèle unique fait moins bien (0,703 contre
+      0,760) et que la morille passe sous le hasard : seule espèce de printemps,
+      noyée dans environ 60 000 lignes d'espèces d'automne. À 8 espèces à
+      phénologies opposées, mutualiser ne paie pas.
+
+  - id: champiquest-loocv
+    source_anchor: "../ChampiQuest/src/champiquest/models/evaluate.py:L67-76"
+    question: |
+      Pourquoi évalue-t-on avec une LOOCV par année plutôt qu'un split aléatoire ?
+    reference_answer: |
+      Les données météo sont corrélées dans le temps : un split aléatoire
+      mettrait des jours voisins en train et en test, donc fuite temporelle.
+      La LOOCV retire une année entière à chaque fois, garantissant un test
+      réellement « jamais vu ».
+    grading_rubric:
+      - "Corrélation temporelle → fuite si split aléatoire"
+      - "Une année entière retirée à chaque itération"
+    explanation: |
+      Le jour J ressemble beaucoup au jour J+1. Si le modèle a vu J+1 à
+      l'entraînement, prédire J au test est artificiellement facile. Le bloc
+      annuel casse cette corrélation et mesure la vraie généralisation — c'est
+      la seule façon honnête d'évaluer un modèle de ce type.
+
+  - id: champiquest-day-of-year
+    source_anchor: "../ChampiQuest/src/champiquest/models/constants.py:L29-36"
+    question: |
+      Qu'apporte la feature day_of_year, et pourquoi la gate de saison reste-t-elle ?
+    reference_answer: |
+      Elle encode la phénologie intra-saison (début, plein, fin de saison).
+      L'ajouter fait passer la LOOCV moyenne de 0,760 à 0,811. La gate de
+      saison reste nécessaire hors fenêtre, car le modèle n'a jamais vu ces dates.
+    grading_rubric:
+      - "Phénologie intra-saison (début / plein / fin)"
+      - "0,760 → 0,811, gate hors saison conservée"
+    explanation: |
+      Sans feature de date, le modèle ne sait pas distinguer un début de saison
+      d'une fin de saison. day_of_year lui fournit ce signal, jusqu'ici ignoré.
+      Hors fenêtre, il ne peut pas apprendre la frontière (aucune donnée d'hiver
+      pour une morille) : la gate reste la seule façon de dire « non applicable ».
+
+  - id: champiquest-features-pruned
+    source_anchor: "../ChampiQuest/src/champiquest/models/constants.py:L29-36"
+    question: |
+      Que contient le set de 13 features « pruned », et comment a-t-il été choisi ?
+    reference_answer: |
+      Fenêtres de pluie (J7/J30/J90), températures min/max, choc et tendance
+      thermique, bilan hydrique J30, température et humidité du sol, sable, et
+      day_of_year. Choisi par corrélations + SHAP : un représentant par cluster,
+      features quasi mortes éliminées.
+    grading_rubric:
+      - "13 features : pluie, températures, bilan, sol, sable, day_of_year"
+      - "Élagage data-driven (corrélations + SHAP)"
+    explanation: |
+      Beaucoup de fenêtres météo sont redondantes (temp_sol ≈ temp_mean à
+      +0,97). On garde un représentant par cluster et on élimine les quasi-mortes
+      (relief, occupation du sol), pour un modèle plus simple sans perte de
+      performance — et plus facile à interpréter.
+
+  - id: champiquest-lightgbm
+    source_anchor: "../ChampiQuest/reports/feature-engineering.md"
+    question: |
+      Pourquoi LightGBM en configuration « A_simple » plutôt qu'un modèle complexe ?
+    reference_answer: |
+      A_simple (50 arbres, 7 feuilles, profondeur 4) surpasse la régression
+      logistique sans sur-ajuster sur de petits datasets. Le random search n'a
+      pas trouvé de configuration nettement meilleure, et la simplicité aide
+      l'interprétabilité.
+    grading_rubric:
+      - "Surpasse la baseline logistique"
+      - "Petite config régularisée, interprétable"
+    explanation: |
+      Avec quelques centaines à quelques milliers de lignes par espèce, un
+      modèle complexe sur-ajusterait. A_simple est régularisé (peu de feuilles,
+      profondeur bornée) et suffisant ; le random search n'a rien trouvé de
+      significativement meilleur, donc on garde le plus simple.
+
+  - id: champiquest-auc
+    source_anchor: "../ChampiQuest/reports/glossaire.md"
+    question: |
+      Que mesure l'AUC, et pourquoi la calcule-t-on par espèce ?
+    reference_answer: |
+      L'AUC (aire sous la courbe ROC) mesure la capacité à classer les positifs
+      au-dessus des négatifs : 0,5 = hasard, 1 = parfait. On la calcule par
+      espèce car chaque espèce a sa prévalence, et une AUC globale serait
+      gonflée par les espèces faciles.
+    grading_rubric:
+      - "AUC = classement, 0,5 = hasard"
+      - "Par espèce : prévalences différentes, sinon gonflé"
+    explanation: |
+      L'AUC est indépendante du seuil : elle dit si le modèle ordonne bien les
+      exemples. La calculer par espèce évite qu'une espèce majoritaire ou facile
+      ne masque les autres. C'est la comparaison honnête quand les prévalences
+      diffèrent.
+
+  - id: champiquest-resultats-p1
+    source_anchor: "../ChampiQuest/reports/rapport-conduite-projet.md"
+    question: |
+      Quels sont les résultats finaux de la partie 1 (pousse) ?
+    reference_answer: |
+      LOOCV moyenne de 0,811 sur 8 espèces (13 features). Meilleures : trompette
+      0,885, lépiote 0,882, cèpe d'été 0,862. Plus faibles : girolle 0,722,
+      cèpe de Bordeaux 0,749.
+    grading_rubric:
+      - "Moyenne 0,811 en LOOCV"
+      - "Ordre de grandeur par espèce (≈ 0,72 à 0,89)"
+    explanation: |
+      Ces AUC sont obtenues en LOOCV par année, donc sans fuite temporelle. La
+      variabilité entre espèces reflète la difficulté du signal : la girolle et
+      le cèpe sont plus diffus, la trompette et la lépiote plus nettement
+      saisonnées.
+
+  # ───────────────────────────── Partie 2 · Vision ──────────────────────────
+  - id: champiquest-convnext
+    source_anchor: "../ChampiQuest/reports/partie-2-reconnaissance-image.md"
+    question: |
+      Pourquoi fine-tuner un ConvNeXt pré-entraîné plutôt qu'entraîner depuis zéro ?
+    reference_answer: |
+      Un modèle pré-entraîné sur ImageNet a déjà appris des features visuelles
+      génériques (contours, textures). Le fine-tuning ne nécessite que peu
+      d'images pour s'adapter à nos 20 classes, là où un entraînement from
+      scratch en demanderait beaucoup plus.
+    grading_rubric:
+      - "Pré-entraîné = features génériques déjà apprises"
+      - "Peu de données suffisent au fine-tuning"
+    explanation: |
+      Le transfer learning exploite la représentation apprise sur des millions
+      d'images. On ajuste le modèle sur nos données de champignons, limitées en
+      volume : c'est le meilleur rapport qualité/données, et bien plus rapide
+      qu'un entraînement complet.
+
+  - id: champiquest-classes-vision
+    source_anchor: "../ChampiQuest/reports/partie-2-reconnaissance-image.md"
+    question: |
+      Comment sont structurées les 20 classes de vision ?
+    reference_answer: |
+      Les espèces cibles (dont les comestibles), leurs « faux amis » (sosies
+      dangereux, sur-échantillonnés), une classe other_fungus (champignons hors
+      cible) et une classe non-champi (pas de champignon).
+    grading_rubric:
+      - "Cibles + faux amis + other_fungus + non-champi"
+      - "Faux amis dangereux sur-échantillonnés"
+    explanation: |
+      La sécurité exige de distinguer les sosies dangereux des comestibles. Les
+      classes other_fungus et non-champi apprennent au modèle à dire « ce n'est
+      pas une cible » au lieu de forcer une réponse parmi les espèces — c'est ce
+      qui rend l'outil réellement utilisable sur le terrain.
+
+  - id: champiquest-calibration
+    source_anchor: "../ChampiQuest/src/champiquest/vision/decision.py:L27-35"
+    question: |
+      Pourquoi calibrer le modèle (temperature scaling) ?
+    reference_answer: |
+      Un classifieur sort des scores qui ne sont pas de vraies probabilités. La
+      calibration ajuste ces scores (un paramètre de température) pour qu'un
+      score de 0,8 veuille dire « 80 % de chances », indispensable avant
+      d'appliquer une décision à coût.
+    grading_rubric:
+      - "Scores ≠ vraies probabilités"
+      - "La température fiabilise les probas, pour la décision à coût"
+    explanation: |
+      La décision à coût suppose des probabilités fiables : si le modèle,
+      sur-confiant, annonce 0,9 pour un toxique, le coût est mal estimé. La
+      temperature scaling apprend un facteur de lissage sur un jeu de validation,
+      sans changer le classement (l'argmax reste le même).
+
+  - id: champiquest-matrice-cout
+    source_anchor: "../ChampiQuest/src/champiquest/vision/decision.py:L59"
+    question: |
+      Qu'est-ce que la matrice de coût, et à quoi sert-elle ?
+    reference_answer: |
+      Elle pondère chaque type d'erreur : annoncer « comestible » un champignon
+      toxique coûte 10× plus que l'inverse, et « comestible » sur un étranger 8×.
+      La décision choisit la classe qui minimise le coût attendu.
+    grading_rubric:
+      - "Erreurs pondérées (comestible sur toxique = 10×)"
+      - "Décision = minimiser le coût attendu"
+    explanation: |
+      Toutes les erreurs ne se valent pas : une confusion vers un toxique peut
+      être mortelle. La matrice de coût rend la décision conservative : en cas de
+      doute entre comestible et toxique, le modèle préfère ne pas annoncer
+      « comestible », même si c'est la classe la plus probable.
+
+  - id: champiquest-abstention
+    source_anchor: "../ChampiQuest/src/champiquest/vision/decision.py:L121-136"
+    question: |
+      Comment fonctionne l'abstention dans la décision ?
+    reference_answer: |
+      Si la probabilité maximale (après calibration) est inférieure à un seuil
+      (0,6), le modèle s'abstient : il répond « je ne sais pas » plutôt que de
+      risquer une erreur dangereuse.
+    grading_rubric:
+      - "Confiance max < 0,6 → abstention"
+      - "Refuser de trancher dans le doute"
+    explanation: |
+      L'abstention est une troisième issue possible, en plus des classes. Elle
+      plafonne le risque : plutôt qu'une prédiction incertaine qui pourrait être
+      dangereuse, le modèle refuse de répondre. C'est un compromis explicite
+      entre couverture et sécurité.
+
+  - id: champiquest-dangerosite-loss
+    source_anchor: "../ChampiQuest/reports/ajout-especes-calibration.md"
+    question: |
+      Pourquoi ne met-on pas la dangerosité directement dans la loss ?
+    reference_answer: |
+      La loss doit rester une estimation de probabilité propre (cross-entropy).
+      Injecter la dangerosité fausserait les probabilités et compliquerait la
+      calibration. Le coût s'applique en post-traitement, sur des probabilités
+      calibrées.
+    grading_rubric:
+      - "Loss = probabilités propres (cross-entropy)"
+      - "Coût appliqué en post-traitement, pas dans la loss"
+    explanation: |
+      On sépare les préoccupations : le modèle apprend à prédire des classes
+      (loss de classification), puis une couche de décision applique le coût sur
+      les probabilités calibrées. C'est plus simple, modifiable sans réentraîner,
+      et les probabilités restent interprétables.
+
+  - id: champiquest-gradcam
+    source_anchor: "../ChampiQuest/reports/partie-2-reconnaissance-image.md"
+    question: |
+      À quoi sert Grad-CAM dans la partie vision ?
+    reference_answer: |
+      À visualiser où le modèle « regarde » pour décider (carte de chaleur sur
+      l'image). Cela permet de vérifier qu'il se base sur le champignon et non
+      sur un artefact (fond, main), donc de pouvoir faire confiance à la décision.
+    grading_rubric:
+      - "Carte de chaleur des zones décisives"
+      - "Vérifier que le modèle regarde le bon objet"
+    explanation: |
+      Grad-CAM propage le gradient de la classe prédite jusqu'à la dernière
+      couche convolutive pour identifier les pixels influents. C'est un garde-fou
+      d'explicabilité : si le modèle se focalise sur le fond plutôt que sur le
+      champignon, on détecte un biais.
+
+  # ────────────────────────── Partie 3 · API & carte ────────────────────────
+  - id: champiquest-endpoints
+    source_anchor: "../ChampiQuest/src/champiquest/api.py:L142-172"
+    question: |
+      Quels sont les principaux endpoints de l'API ?
+    reference_answer: |
+      POST /identify (photos → espèce), POST /growth/predict (point + date →
+      proba de pousse), GET /map (heatmap PNG), GET /species, GET /health, et
+      les pages / et /demo.
+    grading_rubric:
+      - "/identify et /growth/predict"
+      - "/map, /species, /health, /demo"
+    explanation: |
+      L'API expose les deux modèles (vision et pousse) et la carte. Le frontend
+      (Leaflet + page de démo) consomme ces endpoints, et /health sert au smoke
+      test de déploiement. C'est l'interface unique vers tout le système.
+
+  - id: champiquest-store-parquet
+    source_anchor: "../ChampiQuest/src/champiquest/weather_store.py:L34"
+    question: |
+      Pourquoi un store Parquet pour la météo (ERA5 + forecast) ?
+    reference_answer: |
+      Les API météo ont des quotas et de la latence. On précharge l'historique
+      (ERA5, réanalyse) et le forecast dans un Parquet local, dédupliqué (ERA5
+      prioritaire sur le forecast pour les jours qui se chevauchent), pour
+      générer la carte sans rappeler l'API.
+    grading_rubric:
+      - "Quotas et latence → cache local Parquet"
+      - "Dédup : ERA5 prioritaire sur forecast"
+    explanation: |
+      Pour 1634 points sur plusieurs dates, appeler l'API à la volée serait trop
+      lent et coûteux en quota. Le store découple la collecte (refresh resumable)
+      de la génération, et ERA5 écrase le forecast sur les jours déjà réanalysés
+      — la donnée la plus précise gagne.
+
+  - id: champiquest-mapgen
+    source_anchor: "../ChampiQuest/src/champiquest/mapgen.py:L127-156"
+    question: |
+      Comment la carte de prédiction est-elle générée ?
+    reference_answer: |
+      Une grille d'environ 1634 points (~5 km) sur la zone Vosges/Forêt-Noire ;
+      pour chaque point on lit la série météo du store, on calcule les 13
+      features, on applique les 8 modèles puis la gate de saison ; le tout est
+      interpolé et lissé.
+    grading_rubric:
+      - "Grille ~5 km (1634 points) → features → 8 modèles"
+      - "Interpolation + lissage + gate de saison"
+    explanation: |
+      On prédit sur une grille régulière, puis on interpole (×10) et on lisse
+      pour obtenir une heatmap continue. La gate de saison met à zéro les
+      probabilités hors fenêtre de fructification. Le résultat est sauvegardé en
+      fichier npz par date.
+
+  - id: champiquest-echelle-01
+    source_anchor: "../ChampiQuest/src/champiquest/api.py:L86"
+    question: |
+      Pourquoi une échelle de couleur fixe 0 → 1 pour la carte ?
+    reference_answer: |
+      Pour que les couleurs soient comparables entre espèces et entre dates : la
+      couleur encode la probabilité absolue (0,25 = faible, 0,8 = fort). Une
+      échelle auto-normalisée rendrait les comparaisons trompeuses.
+    grading_rubric:
+      - "Échelle fixe → probabilité absolue"
+      - "Comparable entre espèces et dates"
+    explanation: |
+      Si chaque carte normalisait sa propre échelle, un maximum local faible
+      apparaîtrait aussi « chaud » qu'un maximum réel élevé. L'échelle 0→1 fixe
+      ancre la couleur sur la probabilité, pas sur le min/max local de la carte.
+
+  - id: champiquest-masque-clc
+    source_anchor: "../ChampiQuest/reports/partie-3-api-carte.md"
+    question: |
+      À quoi sert le masque CLC (occupation du sol) sur la carte ?
+    reference_answer: |
+      À appliquer l'habitat en post-traitement : favorable (forêts), défavorable
+      (urbain, eau, cultures), le reste « non applicable » (gris, pas zéro). Il
+      sépare le « où l'habitat existe » (déterministe) du « quand ça fructifie »
+      (modèle).
+    grading_rubric:
+      - "Habitat appliqué en post-traitement (favorable / défavorable)"
+      - "« Non applicable » plutôt que 0 : sépare où vs quand"
+    explanation: |
+      Le modèle apprend la phénologie (quand), pas l'habitat (où) — les features
+      habitat sont quasi mortes. Le masque CLC apporte l'habitat de façon
+      déterministe, et marque « non applicable » plutôt que 0 pour ne pas
+      prétendre que le modèle y prédit quoi que ce soit.
+
+  - id: champiquest-docker
+    source_anchor: "../ChampiQuest/Dockerfile"
+    question: |
+      Comment est structuré le déploiement (Docker + CI/CD) ?
+    reference_answer: |
+      Une image Docker Python slim avec les dépendances runtime seulement ;
+      modèles et données en volume (pas dans l'image). CI = tests sur toutes les
+      branches ; CD = build + push vers GHCR sur main et les tags, avec cache de
+      layers.
+    grading_rubric:
+      - "Image légère, modèles/données en volume"
+      - "CI (tests) / CD (GHCR) + cache de layers"
+    explanation: |
+      Mettre les modèles en volume permet de les réentraîner sans reconstruire
+      l'image. Le cache de layers évite de re-télécharger les couches inchangées
+      à chaque push. C'est un déploiement sobre, adapté à une démo sans GPU.
+
+  # ──────────────────────────── Général / transversal ───────────────────────
+  - id: champiquest-anti-fuite
+    source_anchor: "../ChampiQuest/src/champiquest/models/evaluate.py:L76"
+    question: |
+      Quelle fuite de données a été corrigée en partie 1 ?
+    reference_answer: |
+      Les proxies (co-fructifiantes) étaient utilisés en test : comme ils
+      indiquent un habitat favorable, les prédire « pousse » gonflait l'AUC
+      artificiellement. On les exclut du test (ils ne servent qu'à l'entraînement).
+    grading_rubric:
+      - "Proxies en test = AUC gonflé"
+      - "Exclus du test, entraînement seulement"
+    explanation: |
+      Un proxy est par construction corrélé à la présence de la cible. Le tester
+      revient à prédire « une autre espèce a poussé », pas notre cible.
+      L'exclusion du test mesure donc la vraie capacité à prédire l'espèce cible.
+
+  - id: champiquest-fournisseur
+    source_anchor: "../ChampiQuest/reports/rapport-conduite-projet.md"
+    question: |
+      Pourquoi a-t-on changé de fournisseur de données météo en cours de route ?
+    reference_answer: |
+      Le premier fournisseur (NASA POWER) livrait les variables de sol avec un
+      retard qui les rendait indisponibles au moment de la prédiction (jour J).
+      On est passé à Open-Meteo, qui fournit ces variables en temps réel/forecast.
+    grading_rubric:
+      - "Retard du fournisseur → indisponible au jour J"
+      - "Bascule vers Open-Meteo (temps réel)"
+    explanation: |
+      Une feature doit exister au moment de l'inférence, pas seulement à
+      l'entraînement. Le retard de NASA POWER créait un écart train/serve. C'est
+      la leçon la plus importante du projet : aligner les données d'entraînement
+      sur celles réellement disponibles à la prédiction.
+
+  - id: champiquest-ablation
+    source_anchor: "../ChampiQuest/reports/feature-engineering.md"
+    question: |
+      Que montre l'ablation « un modèle unique vs N modèles » ?
+    reference_answer: |
+      Le modèle unique (espèce en feature) fait moins bien : 0,703 contre 0,760,
+      et 0,789 contre 0,811 avec day_of_year. L'ajout de day_of_year rapporte
+      +0,05 dans les deux cas.
+    grading_rubric:
+      - "Modèle unique inférieur (0,703 / 0,789 vs 0,760 / 0,811)"
+      - "day_of_year : +0,05 d'AUC"
+    explanation: |
+      L'ablation valide deux choix par la mesure : garder N modèles (le modèle
+      unique dilue la capacité et mémorise les taux de base) et ajouter
+      day_of_year (signal de phénologie réel). C'est la preuve chiffrée des
+      décisions d'architecture.
+
+  - id: champiquest-morille
+    source_anchor: "../ChampiQuest/reports/feature-engineering.md"
+    question: |
+      Pourquoi la morille s'effondre-t-elle dans le modèle unique ?
+    reference_answer: |
+      C'est la seule espèce de printemps, noyée dans environ 60 000 lignes
+      d'espèces d'automne. Le modèle unique dilue sa capacité et la structure
+      partagée « automne » la prédit à l'envers : AUC 0,465 (pire que le hasard).
+    grading_rubric:
+      - "Seule espèce de printemps, minoritaire"
+      - "AUC 0,465 < 0,5 : classement inversé"
+    explanation: |
+      Une AUC sous 0,5 signifie que le modèle classe à l'envers : ce qu'il croit
+      être de « bonnes conditions » pour la morille sont en réalité de mauvaises
+      conditions. C'est la démonstration la plus nette que mutualiser des espèces
+      à phénologies opposées ne fonctionne pas.

@@ -129,3 +129,36 @@ def due_card_ids(conn: sqlite3.Connection, deck_id: str, now: datetime) -> set[s
     """IDs of stored cards in a deck that are due (due <= now)."""
     rows = conn.execute("SELECT card_id, due FROM cards WHERE deck_id = ?", (deck_id,)).fetchall()
     return {card_id for card_id, due in rows if _parse_dt(due) <= now}
+
+
+def deck_stats(conn: sqlite3.Connection, deck_id: str) -> dict[int, int]:
+    """Number of reviews per rating (1..4) for a deck."""
+    rows = conn.execute(
+        """
+        SELECT r.rating, COUNT(*)
+        FROM reviews r
+        JOIN cards c ON c.card_id = r.card_id
+        WHERE c.deck_id = ?
+        GROUP BY r.rating
+        """,
+        (deck_id,),
+    ).fetchall()
+    counts = {1: 0, 2: 0, 3: 0, 4: 0}
+    for rating, count in rows:
+        counts[rating] = count
+    return counts
+
+
+def missed_card_ids(conn: sqlite3.Connection, deck_id: str) -> set[str]:
+    """IDs of cards whose most recent review was Again (1) or Hard (2)."""
+    rows = conn.execute(
+        """
+        SELECT r.card_id, r.rating
+        FROM reviews r
+        JOIN cards c ON c.card_id = r.card_id
+        WHERE c.deck_id = ?
+          AND r.id = (SELECT MAX(id) FROM reviews WHERE card_id = r.card_id)
+        """,
+        (deck_id,),
+    ).fetchall()
+    return {card_id for card_id, rating in rows if rating in (1, 2)}

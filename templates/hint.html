@@ -19,6 +19,8 @@
 <form method="post" action="/deck/{{ deck.id }}/answer">
   <input type="hidden" name="card_id" value="{{ card.id }}">
   <input type="hidden" name="hint_pending" value="true">
+  <input type="hidden" name="first_answer" value="{{ answer }}">
+  <input type="hidden" name="cram" value="{{ cram }}">
   <label for="answer">Nouvelle réponse :</label>
   <textarea id="answer" name="answer" rows="4" autofocus></textarea>
   <p class="muted hint">Ctrl+Entrée pour valider</p>

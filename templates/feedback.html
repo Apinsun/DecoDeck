@@ -8,7 +8,7 @@
 
 {% if judge_error %}
   <p class="error">Le juge a échoué : {{ judge_error }}</p>
-  <p><a href="/deck/{{ deck.id }}">Réessayer</a></p>
+  <p><a href="/deck/{{ deck.id }}{% if cram_mode %}?cram={{ cram_mode }}{% endif %}">Réessayer</a></p>
 {% else %}
   <div class="verdict">
     <p class="grade grade-{{ grade }}">Note : {{ grade_name }} ({{ grade }})</p>
@@ -35,7 +35,7 @@
       <p class="muted">{{ judge_explanation }}</p>
     </details>
   {% endif %}
-  <p><a class="button" href="/deck/{{ deck.id }}">Carte suivante →</a></p>
+  <p><a class="button" href="/deck/{{ deck.id }}{% if cram_mode %}?cram={{ cram_mode }}{% endif %}">Carte suivante →</a></p>
 {% endif %}
 
 <div class="chat-box">

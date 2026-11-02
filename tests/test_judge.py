@@ -6,6 +6,7 @@ from decodeck.judge import (
     _format_guidance,
     _parse_json,
     cap_grade_after_hint,
+    combine_after_hint,
     grade_from_criteria,
     parse_verdict,
 )
@@ -62,3 +63,13 @@ def test_cap_grade_after_hint():
     assert cap_grade_after_hint(3) == 2  # Good -> Hard
     assert cap_grade_after_hint(2) == 2  # Hard -> Hard
     assert cap_grade_after_hint(1) == 1  # Again -> Again
+
+
+def test_combine_after_hint_keeps_both_answers():
+    combined = combine_after_hint("le GIL", "et c'est utile pour l'I/O")
+    assert "le GIL" in combined
+    assert "l'I/O" in combined
+
+
+def test_combine_after_hint_without_first_answer():
+    assert combine_after_hint("", "réponse seule") == "réponse seule"

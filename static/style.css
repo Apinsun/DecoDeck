@@ -105,3 +105,10 @@ button, .button {
 .message p { margin: 0; white-space: pre-line; }
 button.secondary { background: #2c313c; color: var(--fg); }
 details.judge-detail { margin-top: 1rem; color: var(--muted); }
+
+.done { font-size: 1.1rem; margin: 0; }
+.stats { list-style: none; padding: 0; }
+.stats li { margin: 0.3rem 0; }
+.stat-again, .stat-hard { color: var(--bad); }
+.stat-good, .stat-easy { color: var(--good); }
+.actions p { margin: 0.5rem 0; }

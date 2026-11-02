@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ deck.title }}</h2>
+<div class="card">
+  <p class="done">🎉 Tour du deck terminé — plus rien à réviser pour le moment.</p>
+</div>
+{% if total_reviews %}
+<div class="card">
+  <h3>Statistiques de ce deck</h3>
+  <p class="muted">{{ total_reviews }} réponse(s) évaluée(s) au total.</p>
+  <ul class="stats">
+    <li class="stat-again">Ratées (Again) : {{ counts.get(1, 0) }}</li>
+    <li class="stat-hard">Partielles (Hard) : {{ counts.get(2, 0) }}</li>
+    <li class="stat-good">Bonnes (Good) : {{ counts.get(3, 0) }}</li>
+    <li class="stat-easy">Faciles (Easy) : {{ counts.get(4, 0) }}</li>
+  </ul>
+</div>
+{% endif %}
+<div class="actions">
+  <p><a class="button" href="/deck/{{ deck.id }}?cram=all">Refaire un tour du deck</a></p>
+  {% if missed_count %}
+  <p><a class="button secondary" href="/deck/{{ deck.id }}?cram=missed">Refaire les cartes ratées ({{ missed_count }})</a></p>
+  {% endif %}
+  <p><a href="/">← Changer de deck</a></p>
+</div>
+{% endblock %}

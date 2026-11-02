@@ -7,6 +7,7 @@
   </div>
   <form method="post" action="/deck/{{ deck.id }}/answer">
     <input type="hidden" name="card_id" value="{{ card.id }}">
+    <input type="hidden" name="cram" value="{{ cram }}">
     <label for="answer">Votre réponse :</label>
     <textarea id="answer" name="answer" rows="4" autofocus></textarea>
     <p class="muted hint">Ctrl+Entrée pour valider</p>
