@@ -10,6 +10,7 @@ from decodeck.storage import (
     load_state,
     log_review,
     missed_card_ids,
+    reset_deck,
     save_state,
 )
 
@@ -72,3 +73,16 @@ def test_missed_card_ids_uses_last_review(tmp_path):
     # A later Good review clears the miss.
     log_review(conn, "c1", 3, 2, NOW + timedelta(minutes=1))
     assert missed_card_ids(conn, "deck") == {"c2"}
+
+
+def test_reset_deck_clears_state_and_history(tmp_path):
+    conn = init_db(tmp_path / "test.db")
+    save_state(conn, CardState("c1", "deck", 2, 0, 3.0, 5.0, NOW, NOW))
+    save_state(conn, CardState("c2", "otherdeck", 2, 0, 3.0, 5.0, NOW, NOW))
+    log_review(conn, "c1", 3, 2, NOW)
+    log_review(conn, "c2", 4, 2, NOW)
+    reset_deck(conn, "deck")
+    assert load_state(conn, "c1") is None
+    assert load_state(conn, "c2") is not None  # other deck untouched
+    assert deck_stats(conn, "deck") == {1: 0, 2: 0, 3: 0, 4: 0}
+    assert deck_stats(conn, "otherdeck") == {1: 0, 2: 0, 3: 0, 4: 1}

@@ -7,6 +7,7 @@
     <li>
       <a href="/deck/{{ d.id }}">{{ d.title }}</a>
       <span class="muted">({{ d.count }} cartes)</span>
+      <a class="muted reset-link" href="/deck/{{ d.id }}/reset">réinitialiser</a>
     </li>
   {% endfor %}
   </ul>

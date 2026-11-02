@@ -162,3 +162,13 @@ def missed_card_ids(conn: sqlite3.Connection, deck_id: str) -> set[str]:
         (deck_id,),
     ).fetchall()
     return {card_id for card_id, rating in rows if rating in (1, 2)}
+
+
+def reset_deck(conn: sqlite3.Connection, deck_id: str) -> None:
+    """Delete a deck's learning state and history (cards become new again)."""
+    conn.execute(
+        "DELETE FROM reviews WHERE card_id IN (SELECT card_id FROM cards WHERE deck_id = ?)",
+        (deck_id,),
+    )
+    conn.execute("DELETE FROM cards WHERE deck_id = ?", (deck_id,))
+    conn.commit()

@@ -107,6 +107,9 @@ button.secondary { background: #2c313c; color: var(--fg); }
 details.judge-detail { margin-top: 1rem; color: var(--muted); }
 
 .done { font-size: 1.1rem; margin: 0; }
+.progress { margin: 0 0 0.5rem; }
+.reset-link { font-size: 0.8rem; margin-left: 0.75rem; }
+button.danger { background: var(--bad); }
 .stats { list-style: none; padding: 0; }
 .stats li { margin: 0.3rem 0; }
 .stat-again, .stat-hard { color: var(--bad); }

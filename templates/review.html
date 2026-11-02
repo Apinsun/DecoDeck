@@ -2,6 +2,7 @@
 {% block content %}
 <h2>{{ deck.title }}</h2>
 {% if card %}
+  <p class="muted progress">Carte {{ position }} / {{ total }}</p>
   <div class="card">
     <p class="question">{{ card.question }}</p>
   </div>
@@ -12,6 +13,7 @@
     <textarea id="answer" name="answer" rows="4" autofocus></textarea>
     <p class="muted hint">Ctrl+Entrée pour valider</p>
     <button type="submit">Valider</button>
+    <button type="submit" class="secondary" name="dont_know" value="true">Je ne sais pas</button>
   </form>
 {% else %}
   <p>🎉 Rien à réviser pour le moment.</p>

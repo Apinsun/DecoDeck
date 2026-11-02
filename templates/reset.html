@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Réinitialiser « {{ deck.title }} »</h2>
+<div class="card">
+  <p>Cette action supprime toute la progression d'apprentissage de ce deck :</p>
+  <ul>
+    <li>toutes les cartes redeviennent « nouvelles » (à revoir) ;</li>
+    <li>les statistiques et l'historique sont remis à zéro.</li>
+  </ul>
+  <p class="muted">Le fichier du deck (YAML) n'est pas modifié.</p>
+</div>
+<form method="post" action="/deck/{{ deck.id }}/reset">
+  <button type="submit" class="danger">Confirmer la réinitialisation</button>
+  <a class="button secondary" href="/">Annuler</a>
+</form>
+{% endblock %}
