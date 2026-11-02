@@ -2,7 +2,13 @@
 
 import pytest
 
-from decodeck.judge import _format_guidance, _parse_json, grade_from_criteria, parse_verdict
+from decodeck.judge import (
+    _format_guidance,
+    _parse_json,
+    cap_grade_after_hint,
+    grade_from_criteria,
+    parse_verdict,
+)
 
 
 def test_grade_no_criteria_met_is_again():
@@ -50,3 +56,9 @@ def test_format_guidance_mentions_format_and_count():
     assert "met_criteria" in guidance
     assert "3 booléens" in guidance
     assert "sortie bidon" in guidance
+
+
+def test_cap_grade_after_hint():
+    assert cap_grade_after_hint(3) == 2  # Good -> Hard
+    assert cap_grade_after_hint(2) == 2  # Hard -> Hard
+    assert cap_grade_after_hint(1) == 1  # Again -> Again

@@ -12,14 +12,6 @@
     <p class="muted hint">Ctrl+Entrée pour valider</p>
     <button type="submit">Valider</button>
   </form>
-  <script>
-    document.getElementById("answer").addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        e.preventDefault();
-        e.target.form.submit();
-      }
-    });
-  </script>
 {% else %}
   <p>🎉 Rien à réviser pour le moment.</p>
   <p><a href="/">← Retour aux decks</a></p>

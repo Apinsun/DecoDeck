@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ deck.title }}</h2>
+<div class="card">
+  <p class="question">{{ card.question }}</p>
+  <p class="muted">Votre première réponse : {{ answer }}</p>
+</div>
+<div class="verdict">
+  <p class="grade grade-2">Réponse partielle</p>
+  <ul class="criteria">
+    {% for criterion, met in criteria_pairs %}
+      <li class="{{ 'met' if met else 'missed' }}">{{ '✓' if met else '✗' }} {{ criterion }}</li>
+    {% endfor %}
+  </ul>
+  <div class="hint-box">
+    <p><strong>Indice :</strong> {{ hint }}</p>
+  </div>
+</div>
+<form method="post" action="/deck/{{ deck.id }}/answer">
+  <input type="hidden" name="card_id" value="{{ card.id }}">
+  <input type="hidden" name="hint_pending" value="true">
+  <label for="answer">Nouvelle réponse :</label>
+  <textarea id="answer" name="answer" rows="4" autofocus></textarea>
+  <p class="muted hint">Ctrl+Entrée pour valider</p>
+  <button type="submit">Valider</button>
+</form>
+{% endblock %}

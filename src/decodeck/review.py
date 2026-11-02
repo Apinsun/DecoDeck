@@ -9,7 +9,7 @@ from pathlib import Path
 import yaml
 
 from decodeck.config import load_config
-from decodeck.judge import judge_card
+from decodeck.judge import cap_grade_after_hint, generate_hint, judge_card
 from decodeck.scheduler import apply_review
 from decodeck.storage import init_db, load_state, log_review, save_state
 
@@ -69,6 +69,35 @@ def run_review(deck_path: Path, limit: int | None = None) -> int:
             grade = verdict.grade
             print(f"  Note : {RATING_NAMES[grade]} ({grade}) — critères {verdict.met_criteria}")
             print(f"  {verdict.explanation}")
+
+            if grade == 2:
+                try:
+                    hint = generate_hint(
+                        card["question"],
+                        card["reference_answer"],
+                        card["grading_rubric"],
+                        verdict.met_criteria,
+                        answer,
+                        config,
+                    )
+                    print(f"  Réponse partielle. Indice : {hint}")
+                    second = input("  Nouvelle réponse : ").strip()
+                    if second:
+                        verdict2 = judge_card(
+                            card["question"],
+                            card["reference_answer"],
+                            card["grading_rubric"],
+                            second,
+                            config,
+                        )
+                        grade = cap_grade_after_hint(verdict2.grade)
+                        print(
+                            f"  Après indice : {RATING_NAMES[grade]} ({grade}) "
+                            f"— critères {verdict2.met_criteria}"
+                        )
+                        print(f"  {verdict2.explanation}")
+                except Exception as exc:
+                    print(f"  [indice en échec : {exc}]")
         except Exception as exc:
             print(f"  [juge en échec : {exc}]")
             grade = _manual_grade()

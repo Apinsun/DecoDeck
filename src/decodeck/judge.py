@@ -34,6 +34,12 @@ Réponds UNIQUEMENT en JSON, avec ce format exact :
 - explanation : une phrase courte justifiant l'évaluation.
 """
 
+HINT_SYSTEM_PROMPT = """\
+Tu es un tuteur socratique. L'utilisateur a répondu partiellement à une
+question de révision. Ne révèle PAS la réponse : pose une question de relance
+ciblée sur le critère qu'il n'a pas validé.
+"""
+
 
 @dataclass(frozen=True)
 class Verdict:
@@ -56,6 +62,11 @@ def grade_from_criteria(met: list[bool]) -> int:
     if all(met):
         return 3
     return 2
+
+
+def cap_grade_after_hint(grade: int) -> int:
+    """A hint was used: the grade cannot exceed Hard (2)."""
+    return min(grade, 2)
 
 
 def _parse_json(text: str) -> dict:
@@ -152,3 +163,52 @@ def judge_card(
             )
 
     raise ValueError(f"juge en échec après {max_retries + 1} tentatives : {last_error}")
+
+
+def generate_hint(
+    question: str,
+    reference_answer: str,
+    rubric: list[str],
+    met_criteria: list[bool],
+    user_answer: str,
+    config: Config,
+) -> str:
+    """Generate a Socratic hint targeting the first unmet criterion."""
+    validated = [f"{i + 1}. {c}" for i, (c, m) in enumerate(zip(rubric, met_criteria)) if m]
+    missing = [f"{i + 1}. {c}" for i, (c, m) in enumerate(zip(rubric, met_criteria)) if not m]
+
+    user_prompt = (
+        f"Question : {question}\n\n"
+        f"Réponse de référence : {reference_answer}\n\n"
+        f"Grille de critères :\n"
+        + "\n".join(f"{i + 1}. {c}" for i, c in enumerate(rubric))
+        + "\n\n"
+        f"Réponse de l'utilisateur : {user_answer}\n\n"
+        "Critères validés :\n"
+        + ("\n".join(validated) or "(aucun)")
+        + "\n\nCritères manquants :\n"
+        + "\n".join(missing)
+        + "\n\nPose UNE question de relance socratique ciblée sur le premier "
+        "critère manquant, sans révéler la réponse. Réponds uniquement avec "
+        "la question."
+    )
+
+    client = OpenAI(
+        base_url=config.model.base_url,
+        api_key=config.model.api_key or "ollama",
+    )
+    kwargs: dict[str, Any] = {}
+    if config.model.thinking is False:
+        kwargs["reasoning_effort"] = "none"
+
+    response = client.chat.completions.create(
+        model=config.model.model,
+        messages=[
+            {"role": "system", "content": HINT_SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=0.0,
+        max_tokens=200,
+        **kwargs,
+    )
+    return (response.choices[0].message.content or "").strip()

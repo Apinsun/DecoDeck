@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ deck.title }}</h2>
+<div class="card">
+  <p class="question">{{ card.question }}</p>
+</div>
+
+<div class="chat">
+  {% for message in history %}
+    <div class="message {{ message.role }}">
+      <p>{{ message.content }}</p>
+    </div>
+  {% endfor %}
+  {% if not history %}<p class="muted">Pose ta question sur cette notion.</p>{% endif %}
+</div>
+
+<form method="post" action="/deck/{{ deck.id }}/{{ card.id }}/chat">
+  <input type="hidden" name="history" value="{{ history_json }}">
+  <label for="question">Votre question :</label>
+  <textarea id="question" name="question" rows="2" autofocus></textarea>
+  <p class="muted hint">Ctrl+Entrée pour envoyer</p>
+  <button type="submit">Envoyer</button>
+</form>
+<p><a href="/deck/{{ deck.id }}">← Retour à la révision</a></p>
+{% endblock %}

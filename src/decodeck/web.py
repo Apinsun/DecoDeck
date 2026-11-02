@@ -6,6 +6,7 @@ card, and posts answers through the judge + FSRS + SQLite pipeline.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -15,8 +16,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from decodeck.chat import ask_question
 from decodeck.config import load_config
-from decodeck.judge import judge_card
+from decodeck.judge import cap_grade_after_hint, generate_hint, judge_card
 from decodeck.scheduler import apply_review
 from decodeck.storage import init_db, load_state, log_review, save_state
 
@@ -80,6 +82,7 @@ def answer(
     deck_id: str,
     card_id: str = Form(...),
     answer: str = Form(...),
+    hint_pending: str = Form(""),
 ):
     deck = _load_deck(deck_id)
     card = next((c for c in deck["cards"] if c["id"] == card_id), None) if deck else None
@@ -88,7 +91,9 @@ def answer(
 
     conn = init_db()
     now = datetime.now(timezone.utc)
+    config = load_config()
     answer = answer.strip() or "Je ne sais pas."
+    is_hint_pending = hint_pending == "true"
 
     grade = None
     criteria_pairs: list[tuple[str, bool]] = []
@@ -102,7 +107,7 @@ def answer(
             card["reference_answer"],
             card["grading_rubric"],
             answer,
-            load_config(),
+            config,
         )
         grade = verdict.grade
         criteria_pairs = list(zip(card["grading_rubric"], verdict.met_criteria))
@@ -110,7 +115,34 @@ def answer(
     except Exception as exc:  # noqa: BLE001 — surfaced to the user
         judge_error = str(exc)
 
+    # Relance socratique sur une première réponse partielle (grade 2).
+    if grade == 2 and not is_hint_pending and not judge_error:
+        try:
+            hint = generate_hint(
+                card["question"],
+                card["reference_answer"],
+                card["grading_rubric"],
+                verdict.met_criteria,
+                answer,
+                config,
+            )
+            return templates.TemplateResponse(
+                request,
+                "hint.html",
+                {
+                    "deck": deck,
+                    "card": card,
+                    "answer": answer,
+                    "criteria_pairs": criteria_pairs,
+                    "hint": hint,
+                },
+            )
+        except Exception:  # noqa: BLE001 — fall back to plain feedback
+            pass
+
     if grade is not None:
+        if is_hint_pending:
+            grade = cap_grade_after_hint(grade)
         state = load_state(conn, card_id)
         new_state = apply_review(card_id, deck["id"], state, grade, now)
         save_state(conn, new_state)
@@ -131,6 +163,58 @@ def answer(
             "judge_explanation": judge_explanation,
             "judge_error": judge_error,
             "next_due": next_due,
+            "hint_used": is_hint_pending,
+        },
+    )
+
+
+@app.get("/deck/{deck_id}/{card_id}/chat", response_class=HTMLResponse)
+def chat_page(request: Request, deck_id: str, card_id: str):
+    deck = _load_deck(deck_id)
+    card = next((c for c in deck["cards"] if c["id"] == card_id), None) if deck else None
+    if deck is None or card is None:
+        return RedirectResponse("/", status_code=303)
+    return templates.TemplateResponse(
+        request,
+        "chat.html",
+        {"deck": deck, "card": card, "history": [], "history_json": "[]"},
+    )
+
+
+@app.post("/deck/{deck_id}/{card_id}/chat", response_class=HTMLResponse)
+def chat_post(
+    request: Request,
+    deck_id: str,
+    card_id: str,
+    question: str = Form(...),
+    history: str = Form("[]"),
+):
+    deck = _load_deck(deck_id)
+    card = next((c for c in deck["cards"] if c["id"] == card_id), None) if deck else None
+    if deck is None or card is None:
+        return RedirectResponse("/", status_code=303)
+
+    try:
+        history_list = json.loads(history)
+        if not isinstance(history_list, list):
+            history_list = []
+    except (json.JSONDecodeError, TypeError):
+        history_list = []
+
+    question = question.strip()
+    if question:
+        answer = ask_question(card, history_list, question, load_config())
+        history_list.append({"role": "user", "content": question})
+        history_list.append({"role": "assistant", "content": answer})
+
+    return templates.TemplateResponse(
+        request,
+        "chat.html",
+        {
+            "deck": deck,
+            "card": card,
+            "history": history_list,
+            "history_json": json.dumps(history_list),
         },
     )
 

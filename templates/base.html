@@ -13,5 +13,18 @@
   <main>
     {% block content %}{% endblock %}
   </main>
+  <script>
+    for (const id of ["answer", "question"]) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener("keydown", (e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+            e.preventDefault();
+            e.target.form.submit();
+          }
+        });
+      }
+    }
+  </script>
 </body>
 </html>

@@ -12,6 +12,7 @@
 {% else %}
   <div class="verdict">
     <p class="grade grade-{{ grade }}">Note : {{ grade_name }} ({{ grade }})</p>
+    {% if hint_used %}<p class="muted">Indice utilisé → note plafonnée à Hard.</p>{% endif %}
     <ul class="criteria">
       {% for criterion, met in criteria_pairs %}
         <li class="{{ 'met' if met else 'missed' }}">{{ '✓' if met else '✗' }} {{ criterion }}</li>
@@ -36,4 +37,14 @@
   {% endif %}
   <p><a class="button" href="/deck/{{ deck.id }}">Carte suivante →</a></p>
 {% endif %}
+
+<div class="chat-box">
+  <h3>💬 Une question sur cette notion ?</h3>
+  <form method="post" action="/deck/{{ deck.id }}/{{ card.id }}/chat">
+    <input type="hidden" name="history" value="[]">
+    <textarea id="question" name="question" rows="2" placeholder="Ex. : pourquoi multiprocessing contourne le GIL ?"></textarea>
+    <p class="muted hint">Ctrl+Entrée pour envoyer</p>
+    <button type="submit" class="secondary">Envoyer</button>
+  </form>
+</div>
 {% endblock %}
