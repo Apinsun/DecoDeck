@@ -19,6 +19,7 @@ pytest = "^8.3"
 [tool.poetry.scripts]
 deck-lint = "decodeck.deck_lint:main"
 deck-benchmark = "decodeck.benchmark:main"
+deck-review = "decodeck.review:main"
 
 [build-system]
 requires = ["poetry-core"]

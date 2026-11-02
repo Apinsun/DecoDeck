@@ -2,6 +2,7 @@
 
 [model]
 provider = "ollama"            # preset : ollama | vllm | openai | custom
-model = "lfm2.5-8b-a1b:latest" # modèle par défaut (à changer librement)
+model = "gemma4-e2b-heretic:latest"  # modèle par défaut
 base_url = ""                  # optionnel : override l'URL du preset
-# thinking = false             # false = désactive le "thinking" du modèle (latence)
+api_key = ""                   # optionnel : pour une API payante
+thinking = false               # false = désactive le "thinking" (latence)
