@@ -68,9 +68,11 @@ def run_review(deck_path: Path, limit: int | None = None) -> int:
             )
             grade = verdict.grade
             print(f"  Note : {RATING_NAMES[grade]} ({grade}) — critères {verdict.met_criteria}")
-            print(f"  {verdict.explanation}")
+            explanation = verdict.explanation
 
             if grade == 2:
+                # Don't reveal the judge's explanation before the re-answer: on a
+                # partial answer it can give away the missing criterion.
                 try:
                     hint = generate_hint(
                         card["question"],
@@ -95,9 +97,11 @@ def run_review(deck_path: Path, limit: int | None = None) -> int:
                             f"  Après indice : {RATING_NAMES[grade]} ({grade}) "
                             f"— critères {verdict2.met_criteria}"
                         )
-                        print(f"  {verdict2.explanation}")
+                        explanation = verdict2.explanation
                 except Exception as exc:
                     print(f"  [indice en échec : {exc}]")
+
+            print(f"  {explanation}")
         except Exception as exc:
             print(f"  [juge en échec : {exc}]")
             grade = _manual_grade()

@@ -210,6 +210,7 @@ def answer(
                     "answer": answer,
                     "cram": cram,
                     "criteria_pairs": criteria_pairs,
+                    "missed_count": len(verdict.met_criteria) - sum(verdict.met_criteria),
                     "hint": hint,
                 },
             )

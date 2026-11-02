@@ -9,8 +9,13 @@
   <p class="grade grade-2">Réponse partielle</p>
   <ul class="criteria">
     {% for criterion, met in criteria_pairs %}
-      <li class="{{ 'met' if met else 'missed' }}">{{ '✓' if met else '✗' }} {{ criterion }}</li>
+      {% if met %}
+        <li class="met">✓ {{ criterion }}</li>
+      {% endif %}
     {% endfor %}
+    {% if missed_count %}
+      <li class="missed">✗ {{ missed_count }} critère(s) encore manquant(s)</li>
+    {% endif %}
   </ul>
   <div class="hint-box">
     <p><strong>Indice :</strong> {{ hint }}</p>

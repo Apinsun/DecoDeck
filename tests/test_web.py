@@ -73,3 +73,18 @@ def test_cram_missed_shows_only_missed_card(tmp_path, monkeypatch):
     assert response.status_code == 200
     assert "GIL" in response.text
     web._cram_sessions.clear()
+
+
+def test_hint_page_hides_unmet_criterion_text():
+    html = web.templates.env.get_template("hint.html").render(
+        deck={"id": "d", "title": "D"},
+        card={"id": "c", "question": "Q ?"},
+        answer="réponse partielle",
+        criteria_pairs=[("critère raté secret", False), ("critère validé", True)],
+        missed_count=1,
+        hint="un indice",
+        cram="",
+    )
+    assert "critère raté secret" not in html
+    assert "critère validé" in html
+    assert "1 critère(s) encore manquant(s)" in html
